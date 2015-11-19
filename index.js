@@ -2,7 +2,7 @@ var extend = require('xtend');
 var assert = require('assert');
 var eos = require('end-of-stream');
 var BPromise = require('bluebird');
-
+var debug = require('debug')('deps-stream');
 var defaultCache = require('./lib/cache');
 var getMtimeSync = require('./lib/getMtimeSync');
 var resolveCache = require('./lib/resolveCache');
@@ -57,7 +57,7 @@ proto._resolveDeps = function(){
           resolved[entryDepId] = entryDeps.resolved[entryDepId];
         }
       });
-      console.log('time for resolveDeps: ', (new Date()).getTime() - startTime.getTime(), 'ms');
+      debug('resolve time for %j: %s ms', entry, (new Date()).getTime() - startTime.getTime());
       return {
         queue: queue,
         resolved: resolved
@@ -137,7 +137,7 @@ proto._updateCacheEntry = function(depEntry){
     return contentCache.get(id, function(cacheEntry){
         return curMtime > cacheEntry.mtime;
       }, function(){
-        console.log('update content', fpath);
+        debug('update content', fpath);
         return processFile(fpath).then(function(content){
             return {mtime: curMtime, data: content};
           });
