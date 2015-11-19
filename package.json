@@ -1,12 +1,12 @@
 {
   "name": "deps-stream",
   "version": "1.0.3",
-  "description": "",
+  "description": "Utility for streaming content generated from an entry file or entry files.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "jackzj",
   "license": "ISC",
   "dependencies": {
     "bluebird": "^3.0.5",
