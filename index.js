@@ -27,24 +27,30 @@ function DepsStream(options) {
     contentCache: defaultCache.contentCache,
     resolveDepsCache: defaultCache.resolveDepsCache
   }, options);
-  assert(typeof this.options.entry !== 'undefined', 'missing entry property!');
+  // assert(typeof this.options.entry !== 'undefined', 'missing entry property!');
   assert(typeof this.options.depResolver === 'function', 'missing depResolver property!');
   this._contentCache = cacheWrapper(this.options.contentCache, {memoizePromiseCache: defaultCache.contentMemoizeCache});
   this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver));
-  this._resolveDepsPromise = this._resolveDeps();
+  if(typeof this.options.entry !== 'undefined'){
+    this._resolveDepsPromise = this._resolveDeps(normalizeEntryInput(this.options.entry));
+  }
   return this;
 }
 
 var proto = DepsStream.prototype;
 
+proto.buildFrom = function(entries){
+  this._resolveDepsPromise = this._resolveDeps(normalizeEntryInput(entries));
+  return this;
+}
 
-proto._resolveDeps = function(){
+proto._resolveDeps = function(entryOpts){
   var startTime = new Date();
   // console.log(this.options);
-  var entry = this.options.entry,
-      excludeEntries = this.options.excludeEntries || [],
+  var entries = entryOpts.entries,
+      excludeEntries = entryOpts.excludes,
       resolveDepsFn = this._resolveDepsFn,
-      entryDepsPromise = resolveDepsFn(entry),
+      entryDepsPromise = resolveDepsFn(entries),
       excludeEntriesDepsPromise = resolveDepsFn(excludeEntries);
   return BPromise.all([entryDepsPromise, excludeEntriesDepsPromise])
     .spread(function(entryDeps, excludeEntriesDeps){
@@ -57,7 +63,7 @@ proto._resolveDeps = function(){
           resolved[entryDepId] = entryDeps.resolved[entryDepId];
         }
       });
-      debug('resolve time for %j: %s ms', entry, (new Date()).getTime() - startTime.getTime());
+      debug('resolve time for %j: %s ms', entries, (new Date()).getTime() - startTime.getTime());
       return {
         queue: queue,
         resolved: resolved
@@ -123,9 +129,11 @@ proto.streamTo = function(writable){
 };
 proto.onEnd = function(fn){
   this._onEndHandler = fn;
+  return this;
 };
 proto.onError = function(fn){
   this._onErrorHandler = fn;
+  return this;
 };
 proto._updateCacheEntry = function(depEntry){
   var contentCache = this._contentCache,
@@ -144,9 +152,7 @@ proto._updateCacheEntry = function(depEntry){
       });
   // });
 };
-function isFunction(f){
-  return typeof f === 'function';
-}
+
 proto._processFile = function(fpath){
   var transformers = [].concat(this.options.transformers).filter(isFunction);
   return readFile(fpath).then(function(content){
@@ -164,19 +170,33 @@ proto._processFile = function(fpath){
 };
 //helpers
 
-
+function isFunction(f){
+  return typeof f === 'function';
+}
+// function isObject(o){
+//   return Object.prototype.toString.call(o) === '[object Object]';
+// }
 function isResponse(stream) {
   return stream.statusCode && typeof stream.setHeader === 'function';
-};
-
-module.exports = function createDepsStreamer(options){
-  return function makeDepsStream(entryOpts){
-    if (typeof entryOpts === 'string' || Array.isArray(entryOpts)) {
-      entryOpts = {
-        entry: entryOpts
-      };
-    }
-    var opts = extend({}, options, entryOpts);
-    return new DepsStream(opts);
+}
+function isNonEmptyStr(str){
+  return typeof str === 'string' && str.trim().length > 0;
+}
+function toArray(input){
+  return [].concat(input).filter(Boolean);
+}
+function normalizeEntryInput(entryOpts){
+  assert(typeof entryOpts === 'string' || Object(entryOpts) === entryOpts, '[entry option] Invalid entry option! given: ' + entryOpts);
+  if(typeof entryOpts === 'string' || Array.isArray(entryOpts)){
+    entryOpts = {
+      entries: entryOpts,
+      excludes: []
+    };
+  }
+  return {
+    entries: toArray(entryOpts.entries).filter(isNonEmptyStr),
+    excludes: toArray(entryOpts.excludes).filter(isNonEmptyStr)
   };
-};
+}
+
+module.exports = DepsStream;

@@ -12,13 +12,24 @@ var options = {
   //contentCache: mongoCache
 };
 //make a stream maker
-var depsStreamMaker = require('deps-stream')(options);
-//pass in entries to generator a stream object
-var depsStream = depsStreamMaker({
+var DepsStream = require('deps-stream');
+//pass in options to initiate a stream object
+var depsStream = new DepsStream(options);
+//then use buildFrom method to accept input entries;
+depsStream.buildFrom({
   entry: pUtil.resolve(__dirname, './index.js'), //required
   excludeEntries: [pUtil.resolve(__dirname, './other1.js'), pUtil.resolve(__dirname, './other2.js')]
 });
 //then use the stream object to stream to file stream or a response stream
 
 depsStream.streamTo(writableStream);
+
+//or youcan obtain the meta infomation about the output stream
+depsStream.getMeta().then(function(metaInfo){
+  console.log(metaInfo);
+  //{
+  //  etag: 'xxx'
+  //  mtime: xxx
+  //}
+})
 ```
