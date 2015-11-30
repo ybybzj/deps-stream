@@ -141,16 +141,15 @@ proto._updateCacheEntry = function(depEntry){
       id = depEntry.id,
       curMtime = depEntry.mtime,
       fpath = depEntry.path;
-  // return lock.acquire(id, function(){
-    return contentCache.get(id, function(cacheEntry){
-        return curMtime > cacheEntry.mtime;
-      }, function(){
-        debug('update content', fpath);
-        return processFile(fpath).then(function(content){
-            return {mtime: curMtime, data: content};
-          });
-      });
-  // });
+  
+  return contentCache.get(id, function(cacheEntry){
+      return curMtime > cacheEntry.mtime;
+    }, function(){
+      debug('update content', fpath);
+      return processFile(fpath).then(function(content){
+          return {mtime: curMtime, data: content};
+        });
+    });
 };
 
 proto._processFile = function(fpath){
