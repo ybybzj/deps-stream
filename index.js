@@ -31,7 +31,9 @@ function DepsStream(options) {
     memoizePromiseCache: defaultCache.contentMemoizeCache
   });
   
-  this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver));
+  this._updateCacheEntry = this._updateCacheEntry.bind(this);
+
+  this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver, this._updateCacheEntry));
 
   this._resolveDepsPromise = this._resolveDeps();
   
@@ -99,7 +101,7 @@ proto.streamTo = function(writable) {
       }, deps.resolved[id]);
     });
   }).then(function(depEntries) {
-    return BPromise.each(depEntries.map(_this._updateCacheEntry.bind(_this)), function(content, idx) {
+    return BPromise.each(depEntries.map(_this._updateCacheEntry), function(content, idx) {
       // console.log(content);
       return writable.write(content.data);
     }).then(function() {
