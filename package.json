@@ -1,6 +1,6 @@
 {
   "name": "deps-stream",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Utility for streaming content generated from an entry file or entry files.",
   "main": "index.js",
   "scripts": {
