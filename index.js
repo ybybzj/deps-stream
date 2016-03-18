@@ -33,9 +33,18 @@ function DepsStream(options) {
   
   this._updateCacheEntry = this._updateCacheEntry.bind(this);
 
-  this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver, this._updateCacheEntry));
+  this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver, this._updateCacheEntry), this.options);
 
-  this._resolveDepsPromise = this._resolveDeps();
+  this._resolveDepsPromise = this.options.reloadOnChange === false ? this._resolveDeps() : this._resolveDeps().then(function(deps) {
+
+    return deps.map(function(item) {
+      return {
+        id: item.id,
+        mtime: getMtimeSync(item.path),
+        path: item.path
+      };
+    });
+  });
   
   return this;
 }
@@ -58,13 +67,13 @@ proto._resolveDeps = function() {
 
 proto.getMeta = function() {
   return this._resolveDepsPromise.then(function(deps) {
-    if (deps.queue.length === 0) {
+    if (deps.length === 0) {
       return null;
     }
-    var mtime = deps.resolved[deps.queue[0]].mtime,
+    var mtime = deps[0].mtime,
       i, l, _mtime, etags = [];
-    for (i = 1, l = deps.queue.length; i < l; i++) {
-      _mtime = deps.resolved[deps.queue[i]].mtime;
+    for (i = 1, l = deps.length; i < l; i++) {
+      _mtime = deps[i].mtime;
       etags.push(Number(_mtime).toString(36));
       if (_mtime > mtime) {
         mtime = _mtime;
@@ -93,14 +102,7 @@ proto.streamTo = function(writable) {
     }
   });
 
-  this._resolveDepsPromise.then(function(deps) {
-
-    return deps.queue.map(function(id) {
-      return extend({
-        id: id
-      }, deps.resolved[id]);
-    });
-  }).then(function(depEntries) {
+  this._resolveDepsPromise.then(function(depEntries) {
     return BPromise.each(depEntries.map(_this._updateCacheEntry), function(content, idx) {
       // console.log(content);
       return writable.write(content.data);
