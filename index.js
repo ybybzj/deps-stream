@@ -11,26 +11,29 @@ var resolveDeps = require('./lib/resolveDeps');
 var strHash = require('./lib/stringHash');
 var cacheWrapper = require('./lib/cacheWrapper');
 var readFile = require('./lib/readFile');
-
+var pipe = require('./lib/pipe');
 
 function DepsStream(options) {
   var _resolveDepsByPath;
   if (!(this instanceof DepsStream)) {
     return new DepsStream(options);
   }
-  
+
   this.options = extend({
     contentCache: defaultCache.contentCache,
     resolveDepsCache: defaultCache.resolveDepsCache
   }, options);
-  
+
   assert(typeof this.options.entry !== 'undefined', 'missing entry property!');
   assert(typeof this.options.depResolver === 'function', 'missing depResolver property!');
+
+  //prepare tranformer function
+  this.transformer = pipe([].concat(this.options.transformers).filter(isFunction));
 
   this._contentCache = cacheWrapper(this.options.contentCache, {
     memoizePromiseCache: defaultCache.contentMemoizeCache
   });
-  
+
   this._updateCacheEntry = this._updateCacheEntry.bind(this);
 
   this._resolveDepsFn = resolveDeps(resolveCache(this.options.resolveDepsCache, this.options.depResolver, this._updateCacheEntry), this.options);
@@ -45,7 +48,7 @@ function DepsStream(options) {
       };
     });
   });
-  
+
   return this;
 }
 
@@ -145,34 +148,27 @@ proto._updateCacheEntry = function(depEntry) {
   });
 };
 
-function isFunction(f) {
-  return typeof f === 'function';
-}
-
 proto._processFile = function(fpath) {
-  var transformers = [].concat(this.options.transformers).filter(isFunction);
   return readFile(fpath).then(function(content) {
-    var i, l = transformers.length,
-      transformer, result;
-    if (l > 0) {
-      result = {
+      return {
         path: fpath,
         content: content
       };
-      for (i = 0; i < l; i++) {
-        transformer = transformers[i];
-        result = transformer(result);
-      }
+    })
+    .then(this.transformer)
+    .then(function(result){
       return result.content;
-    }
-    return content;
-  });
+    });
 };
 
 
 //helpers
 function isResponse(stream) {
   return stream.statusCode && typeof stream.setHeader === 'function';
+}
+
+function isFunction(f) {
+  return typeof f === 'function';
 }
 
 module.exports = function createDepsStreamer(options) {
